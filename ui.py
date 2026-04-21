@@ -1,41 +1,37 @@
 import streamlit as st
 import google.generativeai as genai
 
-st.set_page_config(page_title="Libra AI - RomoHeryGPT", page_icon="⚖️")
+st.set_page_config(page_title="Libra AI", page_icon="⚖️")
 
-# Ambil kunci dari Secrets (Brankas) atau Session State
-api_key = st.secrets.get("GOOGLE_API_KEY") or st.session_state.get("api_key", "")
+# Ambil kunci dari brankas Rahasia (Secrets)
+api_key = st.secrets.get("GOOGLE_API_KEY")
 
-with st.sidebar:
-    st.title("⚖️ Libra AI")
-    if not api_key:
-        st.session_state.api_key = st.text_input("API Key:", type="password")
-    else:
-        st.success("✅ API Terhubung")
+st.title("⚖️ Libra AI - Cek Koneksi")
 
-st.title("💬 Chat Room")
-
-if api_key:
+if not api_key:
+    st.error("Kunci belum ada di 'Secrets' Streamlit, Pak.")
+else:
     try:
         genai.configure(api_key=api_key)
-        # Kita coba model paling ringan: gemini-1.5-flash
-        model = genai.GenerativeModel('gemini-1.5-flash')
         
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
-
-        for m in st.session_state.messages:
-            with st.chat_message(m["role"]): st.markdown(m["content"])
-
-        if p := st.chat_input("Tanya sesuatu..."):
-            st.session_state.messages.append({"role": "user", "content": p})
-            with st.chat_message("user"): st.markdown(p)
+        # MENAMPILKAN DAFTAR MODEL YANG TERSEDIA
+        # Ini untuk mengecek model apa yang dibolehkan untuk akun Bapak
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_methods]
+        
+        st.write("Model yang tersedia untuk akun Bapak:")
+        st.json(available_models)
+        
+        # Coba gunakan model pertama yang tersedia secara otomatis
+        selected_model = available_models[0] if available_models else 'models/gemini-1.5-flash'
+        model = genai.GenerativeModel(selected_model)
+        
+        prompt = st.chat_input("Tes sapaan di sini, Pak...")
+        if prompt:
+            st.chat_message("user").write(prompt)
+            response = model.generate_content(prompt)
+            st.chat_message("assistant").write(response.text)
             
-            response = model.generate_content(p)
-            with st.chat_message("assistant"):
-                st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
     except Exception as e:
-        st.error(f"Waduh, masih ditolak (Error 403). Coba pastikan akun Google Bapak sudah mengaktifkan 'Generative AI' di setelan akun.")
-else:
-    st.warning("Silakan masukkan API Key di sidebar atau di Secrets.")
+        st.error(f"Pesan dari Google: {str(e)}")
+        if "403" in str(e):
+            st.info("Saran: Gunakan akun Gmail berbeda untuk membuat API Key baru di AI Studio.")
