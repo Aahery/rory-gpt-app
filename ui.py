@@ -1,61 +1,54 @@
 import streamlit as st
-import json
-import uuid
-from pathlib import Path
 import google.generativeai as genai
 
-# ---------- 1. KONFIGURASI HALAMAN ----------
-st.set_page_config(page_title="Libra AI - RomoHeryGPT", page_icon="⚖️", layout="wide")
+# Konfigurasi Halaman
+st.set_page_config(page_title="Libra AI", page_icon="⚖️")
 
-HISTORY_FILE = Path("chat_sessions.json")
-
-# ---------- 2. MANAJEMEN DATA ----------
-if "all_sessions" not in st.session_state:
-    st.session_state.all_sessions = {}
-
+# Inisialisasi API Key di Session State agar tidak hilang saat pindah menu
 if "api_key" not in st.session_state:
     st.session_state.api_key = ""
 
-# ---------- 3. SIDEBAR ----------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Sidebar
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/10433/10433048.png", width=50)
-    st.title("Libra AI")
-    st.caption("Asisten AI Cerdas - Biro Hukum")
-    st.write("---")
-    menu = st.radio("Menu Utama:", ["🏠 Dashboard", "💬 Chat (Teks)", "⚙️ Pengaturan"])
+    st.title("⚖️ Libra AI")
+    menu = st.radio("Pilih Menu:", ["⚙️ Pengaturan", "💬 Chat (Teks)"])
 
-# ---------- 4. KONTEN HALAMAN ----------
-if menu == "🏠 Dashboard":
-    st.title("🏠 Dashboard Libra AI")
-    st.info(f"Selamat datang, Pak Hery Hendro Purnomo. Silakan ke menu Pengaturan untuk memasukkan API Key, lalu mulai Chat.")
-
-elif menu == "⚙️ Pengaturan":
+# Menu Pengaturan
+if menu == "⚙️ Pengaturan":
     st.title("⚙️ Pengaturan")
-    st.session_state.api_key = st.text_input("Masukkan API Key Gemini Bapak:", value=st.session_state.api_key, type="password")
-    if st.button("Simpan"):
-        st.success("API Key berhasil disimpan!")
+    # Input ini akan langsung memperbarui session_state
+    st.session_state.api_key = st.text_input("Tempel API Key Gemini Bapak di sini:", value=st.session_state.api_key, type="password")
+    if st.button("Simpan Kunci"):
+        st.success("Kunci berhasil dikunci di sistem!")
 
+# Menu Chat
 elif menu == "💬 Chat (Teks)":
     st.title("💬 Chat Room")
+    
     if not st.session_state.api_key:
-        st.warning("⚠️ Bapak belum memasukkan API Key di menu Pengaturan.")
+        st.warning("⚠️ Kunci belum ada. Silakan ke menu Pengaturan dulu ya, Pak.")
     else:
-        genai.configure(api_key=st.session_state.api_key)
-        model = genai.GenerativeModel('gemini-pro')
-        
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
+        try:
+            genai.configure(api_key=st.session_state.api_key)
+            model = genai.GenerativeModel('gemini-pro')
+            
+            # Tampilkan riwayat chat
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
 
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+            # Input chat
+            if prompt := st.chat_input("Ada yang bisa saya bantu, Pak Hery?"):
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                with st.chat_message("user"):
+                    st.markdown(prompt)
 
-        if prompt := st.chat_input("Ketik pesan di sini, Pak..."):
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-
-            with st.chat_message("assistant"):
-                response = model.generate_content(prompt)
-                st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
+                with st.chat_message("assistant"):
+                    response = model.generate_content(prompt)
+                    st.markdown(response.text)
+                    st.session_state.messages.append({"role": "assistant", "content": response.text})
+        except Exception as e:
+            st.error(f"Sepertinya ada masalah: {e}")
